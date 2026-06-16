@@ -34,12 +34,8 @@ const getCurrentPosition = (options) =>
 
 export default function DriverTripForm() {
   const [checklist, setChecklist] = useState({
-    pneusCalibrados: false,
-    freiosVerificados: false,
-    luzesFuncionando: false,
-    nivelOleo: false,
-    cargaConferida: false,
-    documentosConferidos: false,
+    documents: false,
+    conditions: false,
   });
 
   const todosSelecionados = Object.values(checklist).every(Boolean);
@@ -487,12 +483,8 @@ export default function DriverTripForm() {
     ]);
 
     setChecklist({
-      pneusCalibrados: false,
-      freiosVerificados: false,
-      luzesFuncionando: false,
-      nivelOleo: false,
-      cargaConferida: false,
-      documentosConferidos: false,
+      documents: false,
+      conditions: false,
     });
 
     setChecklistSalvo(false);
@@ -526,11 +518,11 @@ export default function DriverTripForm() {
               <input
                 className="form-check-input"
                 type="checkbox"
-                name="pneusCalibrados"
-                checked={checklist.pneusCalibrados}
+                name="documents"
+                checked={checklist.documents}
                 onChange={handleChange}
               />
-              Pneus calibrados
+              Documentação conferida e em conformidade.
             </label>
 
             <br />
@@ -539,63 +531,11 @@ export default function DriverTripForm() {
               <input
                 className="form-check-input"
                 type="checkbox"
-                name="freiosVerificados"
-                checked={checklist.freiosVerificados}
+                name="conditions"
+                checked={checklist.conditions}
                 onChange={handleChange}
               />
-              Freios verificados
-            </label>
-
-            <br />
-
-            <label className="form-check-label">
-              <input
-                className="form-check-input"
-                type="checkbox"
-                name="luzesFuncionando"
-                checked={checklist.luzesFuncionando}
-                onChange={handleChange}
-              />
-              Luzes funcionando
-            </label>
-
-            <br />
-
-            <label className="form-check-label">
-              <input
-                className="form-check-input"
-                type="checkbox"
-                name="nivelOleo"
-                checked={checklist.nivelOleo}
-                onChange={handleChange}
-              />
-              Nível de óleo verificado
-            </label>
-
-            <br />
-
-            <label className="form-check-label">
-              <input
-                className="form-check-input"
-                type="checkbox"
-                name="cargaConferida"
-                checked={checklist.cargaConferida}
-                onChange={handleChange}
-              />
-              Carga conferida
-            </label>
-
-            <br />
-
-            <label className="form-check-label">
-              <input
-                className="form-check-input"
-                type="checkbox"
-                name="documentosConferidos"
-                checked={checklist.documentosConferidos}
-                onChange={handleChange}
-              />
-              Documentos conferidos
+              ⁠Caminhão em boas condições para viagem (pneus, freios, luzes, níveis, revisão).
             </label>
 
             <br />

@@ -806,7 +806,7 @@ export default function DriverTripForm() {
                 />
               </label>
               <label>
-                <span>Premiação (R$)</span>
+                <span>Valor (R$)</span>
                 <input
                   className="inp disabled"
                   type="number"

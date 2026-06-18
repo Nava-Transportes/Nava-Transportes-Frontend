@@ -203,7 +203,7 @@ export default function DriverTripList() {
     doc.text(`KM Final: ${kmFim}`, 14, 53);
     doc.text(`KM Rodado: ${kmRodado}`, 14, 60);
     doc.text(`Total do Frete: ${brCurrency(trip.totalDoFrete || 0)}`, 14, 67);
-    doc.text(`Premiação: ${brCurrency(trip.premiacaoValor || 0)}`, 14, 74);
+    doc.text(`Valor: ${brCurrency(trip.premiacaoValor || 0)}`, 14, 74);
     doc.text(`Total Adiantado: ${brCurrency(totalAdiantado)}`, 14, 81);
     doc.text(`Saldo: ${brCurrency(totalSaldo)}`, 14, 88);
     doc.text(`Litros Total: ${totalLitros}`, 14, 95);
@@ -301,7 +301,7 @@ export default function DriverTripList() {
                   <th>KM Final</th>
                   <th>KM Rodado</th>
                   <th>Total Frete</th>
-                  <th>Premiação</th>
+                  <th>Valor</th>
                   <th>Saldo</th>
                   <th>Status</th>
                   <th className="driver-trip-actions-col">Ações</th>
@@ -486,7 +486,7 @@ export default function DriverTripList() {
                 </div>
 
                 <div className="form-field">
-                  <label>Premiação</label>
+                  <label>Valor</label>
                   <input
                     className="form-control"
                     type="number"

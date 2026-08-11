@@ -809,8 +809,12 @@ export default function DriverTripForm() {
                 <span>Valor (R$)</span>
                 <input
                   className="inp disabled"
-                  type="number"
-                  value={valorPremiacao}
+                  type="text"
+                  value={Number(valorPremiacao || 0).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                    minimumFractionDigits: 2,
+                  })}
                   readOnly
                 />
               </label>
@@ -838,9 +842,13 @@ export default function DriverTripForm() {
                 <span>Total do Frete</span>
                 <input
                   className="inp disabled"
-                  type="number"
-                  value={totalFreteCalculado}
-                  // readOnly
+                  type="text"
+                  value={Number(totalFreteCalculado || 0).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                    minimumFractionDigits: 2,
+                  })}
+                  readOnly
                 />
               </label>
             </div>

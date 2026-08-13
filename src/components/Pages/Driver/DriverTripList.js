@@ -44,16 +44,19 @@ export default function DriverTripList() {
 
       const { data } = await api.get("/driver/trips");
 
-      const finalizados = (data.items || []).map((item) => ({
+      const serverItems = (data.items || []).map((item) => ({
         ...item,
-        tipoRegistro: "finalizado",
+        tipoRegistro: item.isDraft === true ? "rascunho" : "enviado",
       }));
 
       let rascunhos = [];
 
       const savedDraft = localStorage.getItem(STORAGE_KEY);
+      const hasServerDraft = serverItems.some(
+        (item) => item.tipoRegistro === "rascunho"
+      );
 
-      if (savedDraft) {
+      if (savedDraft && !hasServerDraft) {
         try {
           const parsed = JSON.parse(savedDraft);
 
@@ -63,6 +66,11 @@ export default function DriverTripList() {
             const kmInicial = rows.length ? n(rows[0].kmInicial) : 0;
             const kmFinal = rows.length ? n(rows[rows.length - 1].kmFinal) : 0;
             const totalDoFrete = rows.reduce((s, r) => s + n(r.frete), 0);
+            const litrosTotal = rows.reduce((s, r) => s + n(r.litros), 0);
+            const litrosArlaTotal = rows.reduce(
+              (s, r) => s + n(r.litrosArla),
+              0
+            );
             const premiacaoValor = +(
               totalDoFrete *
               (n(parsed.premiacao) / 100)
@@ -75,6 +83,8 @@ export default function DriverTripList() {
               kmInicial,
               kmFinal,
               totalDoFrete,
+              litrosTotal,
+              litrosArlaTotal,
               premiacaoValor,
               trechos: rows,
               updatedAt: parsed.updatedAt,
@@ -85,7 +95,7 @@ export default function DriverTripList() {
         }
       }
 
-      setItems([...rascunhos, ...finalizados]);
+      setItems([...rascunhos, ...serverItems]);
     } catch (e) {
       setErr("Erro ao carregar viagens");
     } finally {
@@ -177,7 +187,7 @@ export default function DriverTripList() {
     };
 
     const exportTripPDF = (trip) => {
-    const doc = new jsPDF();
+    const doc = new jsPDF({ orientation: "landscape" });
 
     const kmIni = n(trip.kmInicial);
     const kmFim = n(trip.kmFinal);
@@ -188,9 +198,13 @@ export default function DriverTripList() {
     const totalSaldo = trechos.reduce((s, r) => s + n(r.saldo), 0);
     const totalAdiantado = trechos.reduce((s, r) => s + n(r.adiantamento), 0);
     const totalLitros = trechos.reduce((s, r) => s + n(r.litros), 0);
+    const totalLitrosArla = trechos.reduce(
+      (s, r) => s + n(r.litrosArla),
+      0
+    );
 
     const status =
-      trip.tipoRegistro === "rascunho" ? "Rascunho" : "Finalizado";
+      trip.tipoRegistro === "rascunho" ? "Rascunho" : "Viagem enviada";
 
     doc.setFontSize(16);
     doc.text("Relatório da Viagem", 14, 15);
@@ -206,10 +220,11 @@ export default function DriverTripList() {
     doc.text(`Valor: ${brCurrency(trip.premiacaoValor || 0)}`, 14, 74);
     doc.text(`Total Adiantado: ${brCurrency(totalAdiantado)}`, 14, 81);
     doc.text(`Saldo: ${brCurrency(totalSaldo)}`, 14, 88);
-    doc.text(`Litros Total: ${totalLitros}`, 14, 95);
+    doc.text(`Diesel Total: ${totalLitros} L`, 14, 95);
+    doc.text(`ARLA Total: ${totalLitrosArla} L`, 14, 102);
 
     autoTable(doc, {
-      startY: 105,
+      startY: 112,
       head: [[
         "Data",
         "Origem",
@@ -220,7 +235,8 @@ export default function DriverTripList() {
         "KM Ini",
         "KM Fin",
         "Posto",
-        "Litros",
+        "Diesel (L)",
+        "ARLA (L)",
         "Média"
       ]],
       body: trechos.map((r) => [
@@ -234,6 +250,7 @@ export default function DriverTripList() {
         n(r.kmFinal),
         r.posto || "-",
         n(r.litros),
+        n(r.litrosArla),
         n(r.mediaTrecho),
       ]),
       styles: {
@@ -244,7 +261,9 @@ export default function DriverTripList() {
       },
     });
 
-    const fileName = `viagem-${trip.plate || "sem-placa"}-${status}.pdf`;
+    const fileName = `viagem-${trip.plate || "sem-placa"}-${status}.pdf`
+      .replace(/\s+/g, "-")
+      .toLowerCase();
 
     doc.save(fileName);
   };
@@ -300,6 +319,8 @@ export default function DriverTripList() {
                   <th>KM Inicial</th>
                   <th>KM Final</th>
                   <th>KM Rodado</th>
+                  <th>Diesel total</th>
+                  <th>ARLA total</th>
                   <th>Total Frete</th>
                   <th>Valor</th>
                   <th>Saldo</th>
@@ -327,19 +348,21 @@ export default function DriverTripList() {
                           : "driver-trip-row-final"
                       }
                     >
-                      <td>{formatDateTime(t.trechos?.[0]?.data) || "-"}</td>
-                      <td>{t.plate || "-"}</td>
-                      <td>{kmIni}</td>
-                      <td>{kmFim}</td>
-                      <td>{kmRodado}</td>
-                      <td>{brCurrency(t.totalDoFrete || 0)}</td>
-                      <td>{brCurrency(t.premiacaoValor || 0)}</td>
-                      <td>
+                      <td data-label="Data">{formatDateTime(t.trechos?.[0]?.data) || "-"}</td>
+                      <td data-label="Placa">{t.plate || "-"}</td>
+                      <td data-label="KM Inicial">{kmIni}</td>
+                      <td data-label="KM Final">{kmFim}</td>
+                      <td data-label="KM Rodado">{kmRodado}</td>
+                      <td data-label="Diesel total">{n(t.litrosTotal)} L</td>
+                      <td data-label="ARLA total">{n(t.litrosArlaTotal)} L</td>
+                      <td data-label="Total Frete">{brCurrency(t.totalDoFrete || 0)}</td>
+                      <td data-label="Valor">{brCurrency(t.premiacaoValor || 0)}</td>
+                      <td data-label="Saldo">
                         <b style={{ color: totalSaldo > 0 ? "#c62828" : "#555" }}>
                           {brCurrency(totalSaldo)}
                         </b>
                       </td>
-                      <td>
+                      <td data-label="Status">
                         <span
                           className={
                             t.tipoRegistro === "rascunho"
@@ -347,11 +370,11 @@ export default function DriverTripList() {
                               : "driver-trip-status-final"
                           }
                         >
-                          {t.tipoRegistro === "rascunho" ? "Rascunho" : "Finalizado"}
+                          {t.tipoRegistro === "rascunho" ? "Rascunho" : "Viagem enviada"}
                         </span>
                       </td>
 
-                      <td className="driver-trip-row-actions">
+                      <td data-label="Ações" className="driver-trip-row-actions">
                         <button
                           type="button"
                           className="btn btn-sm btn-warning"

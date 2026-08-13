@@ -6,76 +6,188 @@ const n = (v) => (isNaN(Number(v)) ? 0 : Number(v));
 const brCurrency = (v) =>
   n(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+const toDateTimeLocal = (value) => {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60 * 1000)
+    .toISOString()
+    .slice(0, 16);
+};
+
 export default function AdminPayments() {
   const [drivers, setDrivers] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState("");
+  const [editingId, setEditingId] = useState("");
+  const [err, setErr] = useState("");
+  const [ok, setOk] = useState("");
 
-  // form
   const [driverId, setDriverId] = useState("");
-  const [amount, setAmount] = useState(0);
+  const [amount, setAmount] = useState("");
   const [proofSent, setProofSent] = useState(false);
   const [note, setNote] = useState("");
   const [paidAt, setPaidAt] = useState("");
 
-  // filtros
   const [fDriver, setFDriver] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
 
+  const resetForm = () => {
+    setEditingId("");
+    setDriverId("");
+    setAmount("");
+    setProofSent(false);
+    setNote("");
+    setPaidAt("");
+  };
+
   const loadDrivers = async () => {
-    const { data } = await api.get("/admin/users", {
-      params: { role: "driver", limit: 200 },
-    });
-    setDrivers(data.items || []);
+    try {
+      const { data } = await api.get("/admin/users", {
+        params: { role: "driver", limit: 200 },
+      });
+      setDrivers(data.items || []);
+    } catch (e) {
+      setErr(e?.response?.data?.message || "Erro ao carregar motoristas.");
+    }
   };
 
   const loadPayments = async () => {
-    setLoading(true);
-    const { data } = await api.get("/admin/payments", {
-      params: {
-        driverId: fDriver || undefined,
-        from: from || undefined,
-        to: to || undefined,
-      },
-    });
-    setItems(data.items || []);
-    setLoading(false);
+    try {
+      setLoading(true);
+      setErr("");
+
+      const { data } = await api.get("/admin/payments", {
+        params: {
+          driverId: fDriver || undefined,
+          from: from || undefined,
+          to: to || undefined,
+        },
+      });
+
+      setItems(data.items || []);
+    } catch (e) {
+      setErr(e?.response?.data?.message || "Erro ao carregar pagamentos.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadDrivers();
     loadPayments();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const submit = async (e) => {
     e.preventDefault();
+    setErr("");
+    setOk("");
+
+    if (!driverId) {
+      setErr("Selecione o motorista.");
+      return;
+    }
+
+    if (!amount || Number(amount) <= 0) {
+      setErr("Informe um valor maior que zero.");
+      return;
+    }
+
+    if (!paidAt) {
+      setErr("Informe a data do pagamento.");
+      return;
+    }
 
     try {
-      if (!driverId) return;
-      if (!amount || Number(amount) <= 0) return;
+      setSaving(true);
 
       const payload = {
         driverId,
         amount: Number(amount),
         proofSent: !!proofSent,
-        note: note || "",
-        paidAt: paidAt ? new Date(paidAt) : new Date(),
+        note: note.trim(),
+        paidAt: new Date(paidAt).toISOString(),
       };
 
-      console.log("PAYMENT PAYLOAD", payload);
+      if (editingId) {
+        await api.put(`/admin/payments/${editingId}`, payload);
+        setOk("Pagamento atualizado com sucesso.");
+      } else {
+        await api.post("/admin/payments", payload);
+        setOk("Pagamento registrado com sucesso.");
+      }
 
-      await api.post("/admin/payments", payload);
-
-      setDriverId("");
-      setAmount("");
-      setProofSent(false);
-      setNote("");
-      setPaidAt("");
-
+      resetForm();
       await loadPayments();
-    } catch (e2) {}
+    } catch (e2) {
+      setErr(e2?.response?.data?.message || "Erro ao salvar pagamento.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const startEdit = (payment) => {
+    setErr("");
+    setOk("");
+    setEditingId(payment._id);
+    setDriverId(payment.driverId || "");
+    setAmount(payment.amount ?? "");
+    setProofSent(payment.proofSent === true);
+    setNote(payment.note || "");
+    setPaidAt(toDateTimeLocal(payment.paidAt));
+
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById("admin-payment-form")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
+  const cancelEdit = () => {
+    resetForm();
+    setErr("");
+    setOk("");
+  };
+
+  const removePayment = async (payment) => {
+    const confirmed = window.confirm(
+      `Deseja excluir o pagamento de ${brCurrency(payment.amount)} para "${
+        payment.driverName || "o motorista"
+      }"?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDeletingId(payment._id);
+      setErr("");
+      setOk("");
+
+      await api.delete(`/admin/payments/${payment._id}`);
+
+      if (editingId === payment._id) {
+        resetForm();
+      }
+
+      setOk("Pagamento excluído com sucesso.");
+      await loadPayments();
+    } catch (e) {
+      setErr(e?.response?.data?.message || "Erro ao excluir pagamento.");
+    } finally {
+      setDeletingId("");
+    }
+  };
+
+  const submitFilters = (e) => {
+    e.preventDefault();
+    loadPayments();
   };
 
   return (
@@ -83,21 +195,40 @@ export default function AdminPayments() {
       <div className="admin-payments-card">
         <div className="admin-payments-head">
           <div>
-            <h2>Pagamentos</h2>
-            <p className="muted">Cadastre os pagamentos enviados aos motoristas.</p>
+            <h2>Pagamentos PIX</h2>
+            <p className="admin-payments-muted">
+              Cadastre, edite e exclua os pagamentos enviados aos motoristas.
+            </p>
           </div>
         </div>
 
-        {/* FORM */}
-        <form className="admin-payments-form" onSubmit={submit}>
+        {err && <div className="admin-payments-alert error">{err}</div>}
+        {ok && <div className="admin-payments-alert success">{ok}</div>}
+
+        <form
+          id="admin-payment-form"
+          className={`admin-payments-form ${editingId ? "is-editing" : ""}`}
+          onSubmit={submit}
+        >
+          <div className="admin-payments-form-title">
+            <div>
+              <h3>{editingId ? "Editar pagamento" : "Novo pagamento"}</h3>
+              {editingId && <span>Altere os dados e salve para atualizar.</span>}
+            </div>
+            {editingId && (
+              <span className="admin-payments-edit-badge">Em edição</span>
+            )}
+          </div>
+
           <div className="admin-payments-form-grid">
-            <div className="field">
-              <label className="form-label">Motorista</label>
+            <div className="admin-payments-field">
+              <label className="admin-payments-label">Motorista</label>
               <select
-                className="form-control"
+                className="admin-payments-control"
                 value={driverId}
                 onChange={(e) => setDriverId(e.target.value)}
                 required
+                disabled={saving}
               >
                 <option value="">Selecione o motorista</option>
                 {drivers.map((d) => (
@@ -108,74 +239,94 @@ export default function AdminPayments() {
               </select>
             </div>
 
-            <div className="field">
-              <label className="form-label">Valor pago</label>
+            <div className="admin-payments-field">
+              <label className="admin-payments-label">Valor pago</label>
               <input
-                className="form-control"
+                className="admin-payments-control"
                 type="number"
+                min="0.01"
                 step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required
+                disabled={saving}
               />
             </div>
 
-            <div className="field">
-              <label className="form-label">Data do pagamento</label>
+            <div className="admin-payments-field">
+              <label className="admin-payments-label">Data do pagamento</label>
               <input
-                className="form-control"
+                className="admin-payments-control"
                 type="datetime-local"
                 value={paidAt}
                 onChange={(e) => setPaidAt(e.target.value)}
                 required
+                disabled={saving}
               />
             </div>
 
-            <div className="field field-full">
-              <label className="chk">
+            <div className="admin-payments-field admin-payments-field-full">
+              <label className="admin-payments-check">
                 <input
                   type="checkbox"
                   checked={proofSent}
                   onChange={(e) => setProofSent(e.target.checked)}
+                  disabled={saving}
                 />
                 Comprovante enviado
               </label>
             </div>
 
-            <div className="field field-full">
-              <label className="form-label">Observações</label>
+            <div className="admin-payments-field admin-payments-field-full">
+              <label className="admin-payments-label">Observações</label>
               <textarea
-                className="form-control"
+                className="admin-payments-control"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={3}
+                disabled={saving}
               />
             </div>
           </div>
 
           <div className="admin-payments-actions">
-            <button className="btn btn-primary" type="submit">
-              Registrar pagamento
+            {editingId && (
+              <button
+                className="btn btn-outline-secondary"
+                type="button"
+                onClick={cancelEdit}
+                disabled={saving}
+              >
+                Cancelar edição
+              </button>
+            )}
+            <button className="btn btn-primary" type="submit" disabled={saving}>
+              {saving
+                ? "Salvando..."
+                : editingId
+                  ? "Salvar alterações"
+                  : "Registrar pagamento"}
             </button>
           </div>
         </form>
 
-        <div className="sep" />
+        <div className="admin-payments-separator" />
 
-        {/* FILTROS */}
         <div className="admin-payments-subhead">
           <div>
-            <h3>Filtros</h3>
-            <p className="muted">Filtre pagamentos se necessário</p>
+            <h3>Pagamentos registrados</h3>
+            <p className="admin-payments-muted">
+              Use os filtros para localizar um pagamento.
+            </p>
           </div>
         </div>
 
-        <div className="admin-payments-filters">
-          <div className="filters-row">
-            <div className="filter-field">
-              <label className="form-label">Motoristas</label>
+        <form className="admin-payments-filters" onSubmit={submitFilters}>
+          <div className="admin-payments-filters-grid">
+            <div className="admin-payments-field">
+              <label className="admin-payments-label">Motorista</label>
               <select
-                className="form-control"
+                className="admin-payments-control"
                 value={fDriver}
                 onChange={(e) => setFDriver(e.target.value)}
               >
@@ -188,37 +339,40 @@ export default function AdminPayments() {
               </select>
             </div>
 
-            <div className="filter-field">
-              <label className="form-label">Data inicial</label>
+            <div className="admin-payments-field">
+              <label className="admin-payments-label">Data inicial</label>
               <input
-                className="form-control"
+                className="admin-payments-control"
                 type="date"
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
               />
             </div>
 
-            <div className="filter-field">
-              <label className="form-label">Data final</label>
+            <div className="admin-payments-field">
+              <label className="admin-payments-label">Data final</label>
               <input
-                className="form-control"
+                className="admin-payments-control"
                 type="date"
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
               />
             </div>
 
-            <div className="filters-actions">
-              <button onClick={loadPayments} className="btn btn-secondary" type="button">
-                Filtrar
+            <div className="admin-payments-filter-actions">
+              <button className="btn btn-secondary" type="submit" disabled={loading}>
+                {loading ? "Filtrando..." : "Filtrar"}
               </button>
             </div>
           </div>
-        </div>
+        </form>
 
-        {/* TABELA */}
         {loading ? (
-          <p>Carregando…</p>
+          <p className="admin-payments-muted">Carregando…</p>
+        ) : items.length === 0 ? (
+          <div className="admin-payments-empty">
+            Nenhum pagamento encontrado com os filtros atuais.
+          </div>
         ) : (
           <div className="admin-payments-table-wrap">
             <table className="admin-payments-table">
@@ -228,20 +382,49 @@ export default function AdminPayments() {
                   <th>Motorista</th>
                   <th>Valor</th>
                   <th>Comprovante</th>
-                  <th>Obs</th>
+                  <th>Observações</th>
+                  <th>Ações</th>
                 </tr>
               </thead>
 
               <tbody>
-                {items.map((p) => (
-                  <tr key={p._id}>
+                {items.map((payment) => (
+                  <tr key={payment._id}>
                     <td data-label="Data">
-                      {new Date(p.paidAt).toLocaleString("pt-BR")}
+                      {new Date(payment.paidAt).toLocaleString("pt-BR")}
                     </td>
-                    <td data-label="Motorista">{p.driverName}</td>
-                    <td data-label="Valor">{brCurrency(p.amount)}</td>
-                    <td data-label="Comprovante">{p.proofSent ? "Sim" : "Não"}</td>
-                    <td data-label="Obs">{p.note || "-"}</td>
+                    <td data-label="Motorista">{payment.driverName || "-"}</td>
+                    <td data-label="Valor">{brCurrency(payment.amount)}</td>
+                    <td data-label="Comprovante">
+                      <span
+                        className={`admin-payments-proof ${
+                          payment.proofSent ? "sent" : "pending"
+                        }`}
+                      >
+                        {payment.proofSent ? "Enviado" : "Pendente"}
+                      </span>
+                    </td>
+                    <td data-label="Observações" className="admin-payments-note">
+                      {payment.note || "-"}
+                    </td>
+                    <td data-label="Ações" className="admin-payments-row-actions">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={() => startEdit(payment)}
+                        disabled={saving || deletingId === payment._id}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => removePayment(payment)}
+                        disabled={saving || deletingId === payment._id}
+                      >
+                        {deletingId === payment._id ? "Excluindo..." : "Excluir"}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

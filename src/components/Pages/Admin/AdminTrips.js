@@ -181,6 +181,8 @@ export default function AdminTrips() {
         kmIni || "-",
         kmFim || "-",
         kmRodado || "-",
+        `${n(t.litrosTotal)} L`,
+        `${n(t.litrosArlaTotal)} L`,
         brCurrency(t.totalDoFrete || t.totalFrete),
         `${brCurrency(t.premiacaoValor || 0)} (${t.premiacaoPercentual || 0}%)`,
         formatDateTime(t.createdAt),
@@ -198,6 +200,8 @@ export default function AdminTrips() {
           "KM Inicial",
           "KM Final",
           "KM Rodado",
+          "Diesel",
+          "ARLA",
           "Total Frete",
           "Premiação",
           "Criado em",
@@ -241,6 +245,7 @@ export default function AdminTrips() {
         kmInicial: full.kmInicial ?? "",
         kmFinal: full.kmFinal ?? "",
         litrosTotal: full.litrosTotal ?? "",
+        litrosArlaTotal: full.litrosArlaTotal ?? "",
         mediaGeral: full.mediaGeral ?? "",
 
         totalDoFrete: full.totalDoFrete ?? full.totalFrete ?? "",
@@ -263,6 +268,7 @@ export default function AdminTrips() {
           kmFinal: r?.kmFinal ?? "",
           posto: r?.posto || "",
           litros: r?.litros ?? "",
+          litrosArla: r?.litrosArla ?? "",
           mediaTrecho: r?.mediaTrecho ?? "",
           pago: !!r?.pago,
         })),
@@ -320,6 +326,10 @@ export default function AdminTrips() {
         kmFinal: editForm.kmFinal === "" ? undefined : n(editForm.kmFinal),
         litrosTotal:
           editForm.litrosTotal === "" ? undefined : n(editForm.litrosTotal),
+        litrosArlaTotal:
+          editForm.litrosArlaTotal === ""
+            ? undefined
+            : n(editForm.litrosArlaTotal),
         mediaGeral:
           editForm.mediaGeral === "" ? undefined : n(editForm.mediaGeral),
 
@@ -348,6 +358,7 @@ export default function AdminTrips() {
           kmFinal: r.kmFinal === "" ? 0 : n(r.kmFinal),
           posto: r.posto || "",
           litros: r.litros === "" ? 0 : n(r.litros),
+          litrosArla: r.litrosArla === "" ? 0 : n(r.litrosArla),
           mediaTrecho: r.mediaTrecho === "" ? 0 : n(r.mediaTrecho),
           pago: !!r.pago,
         })),
@@ -409,6 +420,7 @@ export default function AdminTrips() {
     const kmFim = n(t.kmFinal);
     const kmRodado = kmFim - kmIni;
     const litrosTotal = n(t.litrosTotal);
+    const litrosArlaTotal = n(t.litrosArlaTotal);
     const mediaGeral = n(t.mediaGeral);
     const extras = asArray(t.extras);
     const trechos = asArray(t.trechos);
@@ -470,8 +482,12 @@ export default function AdminTrips() {
 
               <div className="details-kv">
                 <div>
-                  <span>Litros total</span>
+                  <span>Diesel total</span>
                   <strong>{litrosTotal || "-"}</strong>
+                </div>
+                <div>
+                  <span>ARLA total</span>
+                  <strong>{litrosArlaTotal || "-"}</strong>
                 </div>
                 <div>
                   <span>Média geral (km/l)</span>
@@ -517,8 +533,8 @@ export default function AdminTrips() {
                 <tbody>
                   {extras.map((ex, idx) => (
                     <tr key={idx}>
-                      <td>{ex.descricao || "-"}</td>
-                      <td>{brCurrency(ex.valor)}</td>
+                      <td data-label="Descrição">{ex.descricao || "-"}</td>
+                      <td data-label="Valor">{brCurrency(ex.valor)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -544,7 +560,8 @@ export default function AdminTrips() {
                       <th>KM Ini</th>
                       <th>KM Fin</th>
                       <th>Posto</th>
-                      <th>Litros</th>
+                      <th>Diesel (L)</th>
+                      <th>ARLA (L)</th>
                       <th>Média</th>
                       <th>Pago?</th>
                     </tr>
@@ -552,18 +569,19 @@ export default function AdminTrips() {
                   <tbody>
                     {trechos.map((r, idx) => (
                       <tr key={idx}>
-                        <td>{formatDate(r.data)}</td>
-                        <td>{r.origem || "-"}</td>
-                        <td>{r.destino || "-"}</td>
-                        <td>{brCurrency(r.frete)}</td>
-                        <td>{brCurrency(r.adiantamento)}</td>
-                        <td>{brCurrency(r.saldo)}</td>
-                        <td>{r.kmInicial || "-"}</td>
-                        <td>{r.kmFinal || "-"}</td>
-                        <td>{r.posto || "-"}</td>
-                        <td>{r.litros || 0}</td>
-                        <td>{r.mediaTrecho || 0}</td>
-                        <td>{r.pago ? "Sim" : "Não"}</td>
+                        <td data-label="Data">{formatDate(r.data)}</td>
+                        <td data-label="Origem">{r.origem || "-"}</td>
+                        <td data-label="Destino">{r.destino || "-"}</td>
+                        <td data-label="Frete">{brCurrency(r.frete)}</td>
+                        <td data-label="Adiantamento">{brCurrency(r.adiantamento)}</td>
+                        <td data-label="Saldo">{brCurrency(r.saldo)}</td>
+                        <td data-label="KM Inicial">{r.kmInicial || "-"}</td>
+                        <td data-label="KM Final">{r.kmFinal || "-"}</td>
+                        <td data-label="Posto">{r.posto || "-"}</td>
+                        <td data-label="Diesel">{r.litros || 0} L</td>
+                        <td data-label="ARLA">{r.litrosArla || 0} L</td>
+                        <td data-label="Média">{r.mediaTrecho || 0}</td>
+                        <td data-label="Pago">{r.pago ? "Sim" : "Não"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -615,6 +633,7 @@ export default function AdminTrips() {
           kmFinal: "",
           posto: "",
           litros: "",
+          litrosArla: "",
           mediaTrecho: "",
           pago: false,
         },
@@ -653,6 +672,10 @@ export default function AdminTrips() {
     const totalSaldo = trechos.reduce((s, r) => s + n(r.saldo), 0);
     const totalAdiantado = trechos.reduce((s, r) => s + n(r.adiantamento), 0);
     const totalLitros = trechos.reduce((s, r) => s + n(r.litros), 0);
+    const totalLitrosArla = trechos.reduce(
+      (s, r) => s + n(r.litrosArla),
+      0
+    );
 
     // const dataPrincipal =
     //   trechos && trechos.length ? trechos[0].data : trip.data || trip.createdAt;
@@ -682,7 +705,9 @@ export default function AdminTrips() {
     yVehicle += 7;
     doc.text(`KM Rodado: ${kmRodado || "-"}`, 14, yVehicle);
     yVehicle += 7;
-    doc.text(`Litros Total: ${totalLitros || "-"}`, 14, yVehicle);
+    doc.text(`Diesel Total: ${totalLitros || "-"} L`, 14, yVehicle);
+    yVehicle += 7;
+    doc.text(`ARLA Total: ${totalLitrosArla || "-"} L`, 14, yVehicle);
     yVehicle += 7;
     doc.text(`Média Geral: ${trip.mediaGeral || "-"}`, 14, yVehicle);
 
@@ -743,7 +768,8 @@ export default function AdminTrips() {
           "KM Ini",
           "KM Fin",
           "Posto",
-          "Litros",
+          "Diesel",
+          "ARLA",
           "Média",
           "Pago?",
         ],
@@ -759,6 +785,7 @@ export default function AdminTrips() {
         n(r.kmFinal) || "-",
         r.posto || "-",
         n(r.litros) || "-",
+        n(r.litrosArla) || "-",
         n(r.mediaTrecho) || "-",
         r.pago ? "Sim" : "Não",
       ]),
@@ -780,6 +807,8 @@ export default function AdminTrips() {
       trip.status === "finalizado"
     );
   };
+
+  const isTripDraft = (trip) => trip.isDraft === true;
 
   const getTripTotals = (trip) => {
     const trechos = asArray(trip.trechos);
@@ -814,7 +843,7 @@ export default function AdminTrips() {
   };
 
   const handleFinishTrip = async (trip) => {
-    if (!trip || isTripFinished(trip)) return;
+    if (!trip || isTripDraft(trip) || isTripFinished(trip)) return;
 
     const ok = window.confirm(
       `Deseja finalizar a viagem da placa "${trip.plate || "-"}"?`
@@ -977,9 +1006,12 @@ export default function AdminTrips() {
                 <th>Motorista</th>
                 <th>Empresa</th>
                 <th>Placa</th>
+                <th>Status</th>
                 <th>KM Inicial</th>
                 <th>KM Final</th>
                 <th>KM Rodado</th>
+                <th>Diesel</th>
+                <th>ARLA</th>
                 <th>Total Frete</th>
                 <th>Premiação</th>
                 <th>Média caminhão</th>
@@ -1003,29 +1035,49 @@ export default function AdminTrips() {
                 // const hasCoords = t.latitude && t.longitude;
 
                 const finished = isTripFinished(t);
+                const draft = isTripDraft(t);
                 const { mediaCaminhao, totalRecebido, saldoAReceber } = getTripTotals(t);
 
                 return (
                   <tr
                     key={t._id}
-                    className={finished ? "admin-trip-row-finished" : ""}
+                    className={
+                      draft
+                        ? "admin-trip-row-draft"
+                        : finished
+                          ? "admin-trip-row-finished"
+                          : "admin-trip-row-sent"
+                    }
                   >
                     {/* <td>{formatDate(dataPrincipal)}</td> */}
-                    <td>{t.driverName || "-"}</td>
-                    <td>{t.companyName || "-"}</td>
-                    <td>{t.plate || "-"}</td>
-                    <td>{kmIni || "-"}</td>
-                    <td>{kmFim || "-"}</td>
-                    <td>{kmRodado || "-"}</td>
-                    <td>{brCurrency(t.totalDoFrete || t.totalFrete)}</td>
-                    <td>
+                    <td data-label="Motorista">{t.driverName || "-"}</td>
+                    <td data-label="Empresa">{t.companyName || "-"}</td>
+                    <td data-label="Placa">{t.plate || "-"}</td>
+                    <td data-label="Status">
+                      <span
+                        className={
+                          draft
+                            ? "admin-trip-status-draft"
+                            : "admin-trip-status-sent"
+                        }
+                      >
+                        {draft ? "Rascunho" : "Viagem enviada"}
+                      </span>
+                    </td>
+                    <td data-label="KM Inicial">{kmIni || "-"}</td>
+                    <td data-label="KM Final">{kmFim || "-"}</td>
+                    <td data-label="KM Rodado">{kmRodado || "-"}</td>
+                    <td data-label="Diesel">{n(t.litrosTotal)} L</td>
+                    <td data-label="ARLA">{n(t.litrosArlaTotal)} L</td>
+                    <td data-label="Total Frete">{brCurrency(t.totalDoFrete || t.totalFrete)}</td>
+                    <td data-label="Premiação">
                       {brCurrency(t.premiacaoValor || 0)}
                       <span className="muted"> ({t.premiacaoPercentual || 0}%)</span>
                     </td>
-                    <td>{mediaCaminhao || "-"} km/l</td>
-                    <td>{brCurrency(totalRecebido)}</td>
+                    <td data-label="Média caminhão">{mediaCaminhao || "-"} km/l</td>
+                    <td data-label="Total recebido">{brCurrency(totalRecebido)}</td>
 
-                    <td>
+                    <td data-label="Saldo a receber">
                       <b
                         className={
                           finished
@@ -1049,8 +1101,8 @@ export default function AdminTrips() {
                         <span className="muted">Sem local</span>
                       )}
                     </td> */}
-                    <td>{formatDateTime(t.createdAt)}</td>
-                    <td className="admin-trips-row-actions">
+                    <td data-label="Criado em">{formatDateTime(t.createdAt)}</td>
+                    <td data-label="Ações" className="admin-trips-row-actions">
                       <button
                         type="button"
                         className="btn btn-sm btn-outline-secondary"
@@ -1083,15 +1135,21 @@ export default function AdminTrips() {
                         Excluir
                       </button>
                     </td>
-                    <td style={{ textAlign: "center" }}>
+                    <td data-label="Finalizar" className="admin-trip-finish-action">
                       <button
                         type="button"
                         className="btn btn-sm btn-success"
                         onClick={() => handleFinishTrip(t)}
-                        disabled={finished}
-                        title={finished ? "Viagem já finalizada" : "Finalizar viagem"}
+                        disabled={draft || finished}
+                        title={
+                          draft
+                            ? "O motorista ainda não enviou esta viagem"
+                            : finished
+                              ? "Viagem já finalizada"
+                              : "Finalizar viagem"
+                        }
                       >
-                        {finished ? "Finalizada" : "Finalizar"}
+                        {draft ? "Aguardando envio" : finished ? "Finalizada" : "Finalizar"}
                       </button>
                     </td>
                   </tr>
@@ -1233,7 +1291,7 @@ export default function AdminTrips() {
                   </div>
 
                   <div className="form-field">
-                    <label>Litros total</label>
+                    <label>Diesel total (L)</label>
                     <input
                       className="form-control"
                       type="number"
@@ -1241,6 +1299,22 @@ export default function AdminTrips() {
                       value={editForm.litrosTotal}
                       onChange={(e) =>
                         setEditForm((p) => ({ ...p, litrosTotal: e.target.value }))
+                      }
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>ARLA total (L)</label>
+                    <input
+                      className="form-control"
+                      type="number"
+                      step="0.01"
+                      value={editForm.litrosArlaTotal}
+                      onChange={(e) =>
+                        setEditForm((p) => ({
+                          ...p,
+                          litrosArlaTotal: e.target.value,
+                        }))
                       }
                     />
                   </div>
@@ -1358,7 +1432,7 @@ export default function AdminTrips() {
                         <tbody>
                           {editForm.extras.map((ex, idx) => (
                             <tr key={idx}>
-                              <td>
+                              <td data-label="Descrição">
                                 <input
                                   className="form-control"
                                   value={ex.descricao}
@@ -1367,7 +1441,7 @@ export default function AdminTrips() {
                                   }
                                 />
                               </td>
-                              <td>
+                              <td data-label="Valor">
                                 <input
                                   className="form-control"
                                   type="number"
@@ -1378,7 +1452,7 @@ export default function AdminTrips() {
                                   }
                                 />
                               </td>
-                              <td>
+                              <td data-label="Ações">
                                 <button
                                   type="button"
                                   className="btn btn-sm btn-danger"
@@ -1424,7 +1498,8 @@ export default function AdminTrips() {
                             <th>KM Ini</th>
                             <th>KM Fin</th>
                             <th>Posto</th>
-                            <th>Litros</th>
+                            <th>Diesel</th>
+                            <th>ARLA</th>
                             <th>Média</th>
                             <th>Pago?</th>
                             <th>Ações</th>
@@ -1433,7 +1508,7 @@ export default function AdminTrips() {
                         <tbody>
                           {editForm.trechos.map((r, idx) => (
                             <tr key={idx}>
-                              <td>
+                              <td data-label="Data">
                                 <input
                                   className="form-control"
                                   type="date"
@@ -1441,21 +1516,21 @@ export default function AdminTrips() {
                                   onChange={(e) => updateTrecho(idx, "data", e.target.value)}
                                 />
                               </td>
-                              <td>
+                              <td data-label="Origem">
                                 <input
                                   className="form-control"
                                   value={r.origem}
                                   onChange={(e) => updateTrecho(idx, "origem", e.target.value)}
                                 />
                               </td>
-                              <td>
+                              <td data-label="Destino">
                                 <input
                                   className="form-control"
                                   value={r.destino}
                                   onChange={(e) => updateTrecho(idx, "destino", e.target.value)}
                                 />
                               </td>
-                              <td>
+                              <td data-label="Frete">
                                 <input
                                   className="form-control"
                                   type="number"
@@ -1464,7 +1539,7 @@ export default function AdminTrips() {
                                   onChange={(e) => updateTrecho(idx, "frete", e.target.value)}
                                 />
                               </td>
-                              <td>
+                              <td data-label="Adiantamento">
                                 <input
                                   className="form-control"
                                   type="number"
@@ -1475,7 +1550,7 @@ export default function AdminTrips() {
                                   }
                                 />
                               </td>
-                              <td>
+                              <td data-label="Saldo">
                                 <input
                                   className="form-control"
                                   type="number"
@@ -1484,7 +1559,7 @@ export default function AdminTrips() {
                                   onChange={(e) => updateTrecho(idx, "saldo", e.target.value)}
                                 />
                               </td>
-                              <td>
+                              <td data-label="KM Inicial">
                                 <input
                                   className="form-control"
                                   type="number"
@@ -1494,7 +1569,7 @@ export default function AdminTrips() {
                                   }
                                 />
                               </td>
-                              <td>
+                              <td data-label="KM Final">
                                 <input
                                   className="form-control"
                                   type="number"
@@ -1504,14 +1579,14 @@ export default function AdminTrips() {
                                   }
                                 />
                               </td>
-                              <td>
+                              <td data-label="Posto">
                                 <input
                                   className="form-control"
                                   value={r.posto}
                                   onChange={(e) => updateTrecho(idx, "posto", e.target.value)}
                                 />
                               </td>
-                              <td>
+                              <td data-label="Diesel (L)">
                                 <input
                                   className="form-control"
                                   type="number"
@@ -1520,7 +1595,18 @@ export default function AdminTrips() {
                                   onChange={(e) => updateTrecho(idx, "litros", e.target.value)}
                                 />
                               </td>
-                              <td>
+                              <td data-label="ARLA (L)">
+                                <input
+                                  className="form-control"
+                                  type="number"
+                                  step="0.01"
+                                  value={r.litrosArla}
+                                  onChange={(e) =>
+                                    updateTrecho(idx, "litrosArla", e.target.value)
+                                  }
+                                />
+                              </td>
+                              <td data-label="Média">
                                 <input
                                   className="form-control"
                                   type="number"
@@ -1531,7 +1617,7 @@ export default function AdminTrips() {
                                   }
                                 />
                               </td>
-                              <td>
+                              <td data-label="Pago">
                                 <label className="chk">
                                   <input
                                     type="checkbox"
@@ -1543,7 +1629,7 @@ export default function AdminTrips() {
                                   Pago
                                 </label>
                               </td>
-                              <td>
+                              <td data-label="Ações">
                                 <button
                                   type="button"
                                   className="btn btn-sm btn-danger"

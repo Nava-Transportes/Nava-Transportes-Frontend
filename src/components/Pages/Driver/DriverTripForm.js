@@ -64,6 +64,7 @@ export default function DriverTripForm() {
       kmFinal: 0,
       posto: "",
       litros: 0,
+      litrosArla: 0,
       mediaTrecho: 0,
       // assinador: "",
       pago: false,
@@ -105,6 +106,7 @@ export default function DriverTripForm() {
           kmFinal: 0,
           posto: "",
           litros: 0,
+          litrosArla: 0,
           mediaTrecho: 0,
           pago: false,
         },
@@ -179,6 +181,10 @@ export default function DriverTripForm() {
   );
   const litrosTotal = useMemo(
     () => rows.reduce((s, r) => s + n(r.litros), 0),
+    [rows]
+  );
+  const litrosArlaTotal = useMemo(
+    () => rows.reduce((s, r) => s + n(r.litrosArla), 0),
     [rows]
   );
   const mediaGeral = useMemo(() => {
@@ -295,35 +301,59 @@ export default function DriverTripForm() {
 
   useEffect(() => {
     (async () => {
-    try {
-      const { data } = await api.get("/auth/me");
-      const user = data?.user || null;
-      setMe(user);
-
-      if (user?.email) {
-        setPlate(user.email);
-      }
-
-      if (user?.commission !== undefined) {
-        setPremiacao(user.commission);
-      }
-    } catch {}
-    })();
-  }, []);
-
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
       try {
-        const parsed = JSON.parse(saved);
+        const { data } = await api.get("/auth/me");
+        const user = data?.user || null;
+        setMe(user);
 
-        if (parsed.rows?.length) setRows(parsed.rows);
-        if (parsed.premiacao !== undefined) setPremiacao(parsed.premiacao);
-        if (parsed.companyName) setCompanyName(parsed.companyName);
+        if (new URLSearchParams(window.location.search).get("mode") === "view") {
+          return;
+        }
+
+        let remoteDraft = null;
+
+        try {
+          const draftResponse = await api.get("/driver/trips/draft");
+          remoteDraft = draftResponse.data?.item || null;
+        } catch (draftError) {
+          console.warn("Erro ao carregar rascunho do servidor", draftError);
+        }
+
+        if (remoteDraft) {
+          if (remoteDraft.trechos?.length) setRows(remoteDraft.trechos);
+          if (remoteDraft.premiacaoPercentual !== undefined) {
+            setPremiacao(remoteDraft.premiacaoPercentual);
+          }
+          setPlate(remoteDraft.plate || user?.email || "");
+          setCompanyName(remoteDraft.companyName || "");
+
+          if (remoteDraft.checklist) {
+            setChecklist(remoteDraft.checklist);
+          }
+          if (remoteDraft.checklistSalvo === true) {
+            setChecklistSalvo(true);
+          }
+
+          return;
+        }
+
+        const saved = localStorage.getItem(STORAGE_KEY);
+
+        if (saved) {
+          const parsed = JSON.parse(saved);
+
+          if (parsed.rows?.length) setRows(parsed.rows);
+          if (parsed.premiacao !== undefined) setPremiacao(parsed.premiacao);
+          if (parsed.companyName) setCompanyName(parsed.companyName);
+          setPlate(parsed.plate || user?.email || "");
+        } else {
+          if (user?.email) setPlate(user.email);
+          if (user?.commission !== undefined) setPremiacao(user.commission);
+        }
       } catch (e) {
         console.warn("Erro ao restaurar viagem em aberto", e);
       }
-    }
+    })();
   }, []);
 
   const [saving, setSaving] = useState(false);
@@ -332,7 +362,42 @@ export default function DriverTripForm() {
   const [ok, setOk] = useState("");
   const [draftOk, setDraftOk] = useState("");
 
-  const handleSaveDraft = () => {
+  const buildTripPayload = (geo = null) => ({
+    driverId: me?.id,
+    driverName: me?.name,
+    plate,
+    companyName,
+    kmInicial,
+    kmFinal,
+    litrosTotal,
+    litrosArlaTotal,
+    mediaGeral,
+    premiacaoPercentual: n(premiacao),
+    premiacaoValor: valorPremiacao,
+    totalViagem: totalFreteCalculado,
+    totalDoFrete: totalFreteCalculado,
+    extras: extras
+      .filter((x) => x.descricao || n(x.valor) > 0)
+      .map((x) => ({ descricao: x.descricao, valor: n(x.valor) })),
+    trechos: rows.map((r) => ({
+      ...r,
+      frete: n(r.frete),
+      adiantamento: n(r.adiantamento),
+      saldo: n(r.saldo),
+      kmInicial: n(r.kmInicial),
+      kmFinal: n(r.kmFinal),
+      litros: n(r.litros),
+      litrosArla: n(r.litrosArla),
+      mediaTrecho: n(r.mediaTrecho),
+    })),
+    checklist,
+    checklistSalvo,
+    latitude: geo?.latitude,
+    longitude: geo?.longitude,
+    locationAccuracy: geo?.accuracy,
+  });
+
+  const handleSaveDraft = async () => {
     setErr("");
     setOk("");
     setDraftOk("");
@@ -360,9 +425,14 @@ export default function DriverTripForm() {
         })
       );
 
+      await api.put("/driver/trips/draft", buildTripPayload());
+
       setDraftOk("Rascunho salvo com sucesso.");
     } catch (e) {
-      setErr("Erro ao salvar rascunho.");
+      setErr(
+        e?.response?.data?.message ||
+          "O rascunho ficou salvo apenas neste dispositivo. Tente novamente para disponibilizá-lo ao administrador."
+      );
     } finally {
       setSavingDraft(false);
     }
@@ -392,40 +462,7 @@ export default function DriverTripForm() {
     }
 
     try {
-      const payload = {
-        driverId: me?.id,
-        driverName: me?.name,
-        plate,
-        companyName,
-        kmInicial,
-        kmFinal,
-        litrosTotal,
-        mediaGeral,
-        // totalAssinado: n(totalAssinado),
-        // totalPago: n(totalPago),
-        premiacaoPercentual: n(premiacao),
-        premiacaoValor: valorPremiacao,
-        totalViagem: totalFreteCalculado,
-        totalDoFrete: totalFreteCalculado,
-
-        extras: extras
-          .filter((x) => x.descricao || n(x.valor) > 0)
-          .map((x) => ({ descricao: x.descricao, valor: n(x.valor) })),
-
-        trechos: rows.map((r) => ({
-          ...r,
-          frete: n(r.frete),
-          adiantamento: n(r.adiantamento),
-          saldo: n(r.saldo),
-          kmInicial: n(r.kmInicial),
-          kmFinal: n(r.kmFinal),
-          litros: n(r.litros),
-          mediaTrecho: n(r.mediaTrecho),
-        })),
-        latitude: geo?.latitude,
-        longitude: geo?.longitude,
-        locationAccuracy: geo?.accuracy,
-      };
+      const payload = buildTripPayload(geo);
 
       await api.post("/driver/trips", payload);
       
@@ -445,6 +482,7 @@ export default function DriverTripForm() {
           kmFinal: 0,
           posto: "",
           litros: 0,
+          litrosArla: 0,
           mediaTrecho: 0,
           // assinador: "",
           pago: false,
@@ -461,7 +499,19 @@ export default function DriverTripForm() {
     }
   };
 
-  const handleCancelReset = () => {
+  const handleCancelReset = async () => {
+    setErr("");
+
+    try {
+      await api.delete("/driver/trips/draft");
+    } catch (e) {
+      setErr(
+        e?.response?.data?.message ||
+          "Não foi possível remover o rascunho. Tente novamente."
+      );
+      return;
+    }
+
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(CHECKLIST_STORAGE_KEY);
 
@@ -477,6 +527,7 @@ export default function DriverTripForm() {
         kmFinal: 0,
         posto: "",
         litros: 0,
+        litrosArla: 0,
         mediaTrecho: 0,
         pago: false,
       },
@@ -574,7 +625,8 @@ export default function DriverTripForm() {
                     <th>KM Ini</th>
                     <th>KM Fin</th>
                     <th>Posto</th>
-                    <th>Litros</th>
+                    <th>Diesel (L)</th>
+                    <th>ARLA (L)</th>
                     {/* <th>Média</th> */}
                     {/* <th>Assinador</th> */}
                     {/* <th>Pago?</th> */}
@@ -584,7 +636,7 @@ export default function DriverTripForm() {
                 <tbody>
                   {rows.map((r, i) => (
                     <tr key={i}>
-                      <td>
+                      <td data-label="Data">
                         <input
                           className="inp"
                           type="date"
@@ -592,21 +644,21 @@ export default function DriverTripForm() {
                           onChange={(e) => setRow(i, "data", e.target.value)}
                         />
                       </td>
-                      <td>
+                      <td data-label="Origem">
                         <input
                           className="inp"
                           value={r.origem}
                           onChange={(e) => setRow(i, "origem", e.target.value)}
                         />
                       </td>
-                      <td>
+                      <td data-label="Destino">
                         <input
                           className="inp"
                           value={r.destino}
                           onChange={(e) => setRow(i, "destino", e.target.value)}
                         />
                       </td>
-                      <td>
+                      <td data-label="Frete (R$)">
                         <input
                           className="inp"
                           type="number"
@@ -615,7 +667,7 @@ export default function DriverTripForm() {
                           onChange={(e) => setRow(i, "frete", e.target.value)}
                         />
                       </td>
-                      <td>
+                      <td data-label="Adiantamento (R$)">
                         <input
                           className="inp"
                           type="number"
@@ -626,7 +678,7 @@ export default function DriverTripForm() {
                           }
                         />
                       </td>
-                      <td>
+                      <td data-label="Saldo (R$)">
                         <input
                           className="inp disabled"
                           type="number"
@@ -635,7 +687,7 @@ export default function DriverTripForm() {
                           onChange={(e) => setRow(i, "saldo", e.target.value)}
                         />
                       </td>
-                      <td>
+                      <td data-label="KM Inicial">
                         <input
                           className="inp"
                           type="number"
@@ -646,7 +698,7 @@ export default function DriverTripForm() {
                           }
                         />
                       </td>
-                      <td>
+                      <td data-label="KM Final">
                         <input
                           className="inp"
                           type="number"
@@ -655,20 +707,32 @@ export default function DriverTripForm() {
                           onChange={(e) => setRow(i, "kmFinal", e.target.value)}
                         />
                       </td>
-                      <td>
+                      <td data-label="Posto">
                         <input
                           className="inp"
                           value={r.posto}
                           onChange={(e) => setRow(i, "posto", e.target.value)}
                         />
                       </td>
-                      <td>
+                      <td data-label="Diesel (L)">
                         <input
                           className="inp"
                           type="number"
                           step="0.01"
                           value={r.litros}
                           onChange={(e) => setRow(i, "litros", e.target.value)}
+                        />
+                      </td>
+                      <td data-label="ARLA (L)">
+                        <input
+                          className="inp"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={r.litrosArla ?? 0}
+                          onChange={(e) =>
+                            setRow(i, "litrosArla", e.target.value)
+                          }
                         />
                       </td>
                       {/* <td>
@@ -696,7 +760,7 @@ export default function DriverTripForm() {
                           onChange={(e) => setRow(i, "pago", e.target.checked)}
                         />
                       </td> */}
-                      <td>
+                      <td data-label="Ações">
                         {rows.length > 1 && !isViewMode && (
                           <button
                             type="button"
@@ -788,11 +852,20 @@ export default function DriverTripForm() {
                 <input className="inp disabled" type="number" value={kmFinal} readOnly />
               </label>
               <label>
-                <span>Litros total</span>
+                <span>Diesel total (L)</span>
                 <input
                   className="inp disabled"
                   type="number"
                   value={litrosTotal}
+                  readOnly
+                />
+              </label>
+              <label>
+                <span>ARLA total (L)</span>
+                <input
+                  className="inp disabled"
+                  type="number"
+                  value={litrosArlaTotal}
                   readOnly
                 />
               </label>

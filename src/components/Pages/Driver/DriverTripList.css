@@ -10,8 +10,76 @@
 
 @media (max-width: 768px) {
   .driver-trip-list-page .driver-card {
-    padding: 25px;
-    width: 94vw;
+    padding: 14px;
+    width: 100%;
+  }
+
+  .driver-trip-table-wrap {
+    overflow: visible;
+    border: 0;
+  }
+
+  .driver-trip-table {
+    min-width: 0;
+  }
+
+  .driver-trip-table > thead {
+    display: none;
+  }
+
+  .driver-trip-table > tbody,
+  .driver-trip-table > tbody > tr,
+  .driver-trip-table > tbody > tr > td {
+    display: block;
+    width: 100%;
+  }
+
+  .driver-trip-table > tbody > tr {
+    margin-bottom: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 12px;
+  }
+
+  .driver-trip-table > tbody > tr > td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 9px 12px;
+    text-align: right;
+    white-space: normal;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+  }
+
+  .driver-trip-table > tbody > tr > td::before {
+    content: attr(data-label);
+    flex: 0 0 42%;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .driver-trip-table > tbody > tr > td:last-child {
+    border-bottom: 0;
+  }
+
+  .driver-trip-table > tbody > tr > .driver-trip-row-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .driver-trip-table > tbody > tr > .driver-trip-row-actions::before {
+    margin-bottom: 2px;
+  }
+
+  .driver-trip-row-actions .btn {
+    width: 100%;
+    min-height: 40px;
+    margin-left: 0 !important;
   }
 }
 
@@ -202,4 +270,65 @@
 
 .driver-trip-export-icon {
   width: 23px;
+}
+
+@media (max-width: 768px) {
+  .driver-trip-list-page .driver-card {
+    width: 100%;
+    padding: 14px;
+  }
+
+  .driver-trip-table-wrap {
+    overflow: visible;
+    border: 0;
+  }
+
+  .driver-trip-table {
+    min-width: 0;
+  }
+
+  .driver-trip-table > tbody > tr > td {
+    display: grid;
+    grid-template-columns: minmax(105px, 40%) minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .driver-trip-status-final,
+  .driver-trip-status-draft {
+    justify-self: end;
+  }
+
+  .driver-trip-table > tbody > tr > .driver-trip-row-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .driver-trip-row-actions .btn {
+    width: 100%;
+    min-height: 40px;
+    margin-left: 0 !important;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 380px) {
+  .driver-trip-list-page .driver-card {
+    padding: 12px;
+  }
+
+  .driver-trip-table > tbody > tr > td {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    text-align: left;
+  }
+
+  .driver-trip-status-final,
+  .driver-trip-status-draft {
+    justify-self: start;
+  }
 }

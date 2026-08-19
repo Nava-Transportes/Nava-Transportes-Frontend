@@ -7,6 +7,7 @@ import "./DriverTripList.css";
 const n = (v) => (isNaN(Number(v)) ? 0 : Number(v));
 const brCurrency = (v) =>
   n(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const asArray = (v) => (Array.isArray(v) ? v : []);
 
 const STORAGE_KEY = "driver_trip_draft";
 const VIEW_STORAGE_KEY = "driver_trip_view";
@@ -32,6 +33,15 @@ export default function DriverTripList() {
     if (!v) return "-";
     try {
       return new Date(v).toLocaleString("pt-BR");
+    } catch {
+      return "-";
+    }
+  };
+
+  const formatDate = (v) => {
+    if (!v) return "-";
+    try {
+      return new Date(v).toLocaleDateString("pt-BR");
     } catch {
       return "-";
     }
@@ -186,14 +196,17 @@ export default function DriverTripList() {
       window.location.href = FORM_ROUTE;
     };
 
-    const exportTripPDF = (trip) => {
-    const doc = new jsPDF({ orientation: "landscape" });
+  const exportTripPDF = (trip) => {
+    if (!trip) return;
+
+    const doc = new jsPDF();
+
+    const trechos = asArray(trip.trechos);
+    const extras = asArray(trip.extras);
 
     const kmIni = n(trip.kmInicial);
     const kmFim = n(trip.kmFinal);
     const kmRodado = kmFim - kmIni;
-
-    const trechos = trip.trechos || [];
 
     const totalSaldo = trechos.reduce((s, r) => s + n(r.saldo), 0);
     const totalAdiantado = trechos.reduce((s, r) => s + n(r.adiantamento), 0);
@@ -203,65 +216,119 @@ export default function DriverTripList() {
       0
     );
 
-    const status =
-      trip.tipoRegistro === "rascunho" ? "Rascunho" : "Viagem enviada";
-
     doc.setFontSize(16);
     doc.text("Relatório da Viagem", 14, 15);
 
     doc.setFontSize(10);
-    doc.text(`Status: ${status}`, 14, 25);
-    doc.text(`Placa: ${trip.plate || "-"}`, 14, 32);
-    doc.text(`Data: ${formatDateTime(trechos?.[0]?.data)}`, 14, 39);
-    doc.text(`KM Inicial: ${kmIni}`, 14, 46);
-    doc.text(`KM Final: ${kmFim}`, 14, 53);
-    doc.text(`KM Rodado: ${kmRodado}`, 14, 60);
-    doc.text(`Total do Frete: ${brCurrency(trip.totalDoFrete || 0)}`, 14, 67);
-    doc.text(`Valor: ${brCurrency(trip.premiacaoValor || 0)}`, 14, 74);
-    doc.text(`Total Adiantado: ${brCurrency(totalAdiantado)}`, 14, 81);
-    doc.text(`Saldo: ${brCurrency(totalSaldo)}`, 14, 88);
-    doc.text(`Diesel Total: ${totalLitros} L`, 14, 95);
-    doc.text(`ARLA Total: ${totalLitrosArla} L`, 14, 102);
+
+    // Bloco superior esquerdo
+    let yLeft = 25;
+    doc.text(`Motorista: ${trip.driverName || "-"}`, 14, yLeft);
+    yLeft += 7;
+    doc.text(`Empresa: ${trip.companyName || "-"}`, 14, yLeft);
+    yLeft += 7;
+    doc.text(`Placa: ${trip.plate || "-"}`, 14, yLeft);
+    yLeft += 7;
+    yLeft += 7;
+    doc.text(`Criado em: ${formatDateTime(trip.createdAt)}`, 14, yLeft);
+
+    // Bloco veículo
+    let yVehicle = 70;
+    doc.text(`KM Inicial: ${kmIni || "-"}`, 14, yVehicle);
+    yVehicle += 7;
+    doc.text(`KM Final: ${kmFim || "-"}`, 14, yVehicle);
+    yVehicle += 7;
+    doc.text(`KM Rodado: ${kmRodado || "-"}`, 14, yVehicle);
+    yVehicle += 7;
+    doc.text(`Diesel Total: ${totalLitros || "-"} L`, 14, yVehicle);
+    yVehicle += 7;
+    doc.text(`ARLA Total: ${totalLitrosArla || "-"} L`, 14, yVehicle);
+    yVehicle += 7;
+    doc.text(`Média Geral: ${trip.mediaGeral || "-"}`, 14, yVehicle);
+
+    // Bloco financeiro
+    let yFinance = 70;
+    doc.text(
+      `Total do Frete: ${brCurrency(trip.totalDoFrete || trip.totalFrete)}`,
+      110,
+      yFinance
+    );
+    yFinance += 7;
+    doc.text(`Total Adiantado: ${brCurrency(totalAdiantado)}`, 110, yFinance);
+    yFinance += 7;
+    doc.text(`Saldo: ${brCurrency(totalSaldo)}`, 110, yFinance);
+    yFinance += 7;
+    doc.text(
+      `Premiação: ${brCurrency(trip.premiacaoValor || 0)} (${trip.premiacaoPercentual || 0}%)`,
+      110,
+      yFinance
+    );
+
+    if (trip.latitude && trip.longitude) {
+      yFinance += 7;
+      doc.text(
+        `Localização: ${Number(trip.latitude).toFixed(5)}, ${Number(trip.longitude).toFixed(5)}`,
+        110,
+        yFinance
+      );
+    }
+
+    let startY = 110;
+
+    if (extras.length > 0) {
+      autoTable(doc, {
+        startY,
+        head: [["Extras", "Valor"]],
+        body: extras.map((ex) => [
+          ex.descricao || "-",
+          brCurrency(ex.valor),
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [37, 99, 235] },
+      });
+
+      startY = doc.lastAutoTable.finalY + 10;
+    }
 
     autoTable(doc, {
-      startY: 112,
-      head: [[
-        "Data",
-        "Origem",
-        "Destino",
-        "Frete",
-        "Adiant.",
-        "Saldo",
-        "KM Ini",
-        "KM Fin",
-        "Posto",
-        "Diesel (L)",
-        "ARLA (L)",
-        "Média"
-      ]],
+      startY,
+      head: [
+        [
+          "Data",
+          "Origem",
+          "Destino",
+          "Frete",
+          "Adiant.",
+          "Saldo",
+          "KM Ini",
+          "KM Fin",
+          "Posto",
+          "Diesel",
+          "ARLA",
+          "Média",
+          "Pago?",
+        ],
+      ],
       body: trechos.map((r) => [
-        r.data ? new Date(r.data).toLocaleDateString("pt-BR") : "-",
+        formatDate(r.data),
         r.origem || "-",
         r.destino || "-",
-        brCurrency(r.frete || 0),
-        brCurrency(r.adiantamento || 0),
-        brCurrency(r.saldo || 0),
-        n(r.kmInicial),
-        n(r.kmFinal),
+        brCurrency(r.frete),
+        brCurrency(r.adiantamento),
+        brCurrency(r.saldo),
+        n(r.kmInicial) || "-",
+        n(r.kmFinal) || "-",
         r.posto || "-",
-        n(r.litros),
-        n(r.litrosArla),
-        n(r.mediaTrecho),
+        n(r.litros) || "-",
+        n(r.litrosArla) || "-",
+        n(r.mediaTrecho) || "-",
+        r.pago ? "Sim" : "Não",
       ]),
-      styles: {
-        fontSize: 8,
-      },
-      headStyles: {
-        fillColor: [40, 40, 40],
-      },
+      styles: { fontSize: 7 },
+      headStyles: { fillColor: [37, 99, 235] },
     });
 
-    const fileName = `viagem-${trip.plate || "sem-placa"}-${status}.pdf`
+    const fileName = `viagem-${trip.plate || "sem-placa"}-${trip.driverName || "motorista"}.pdf`
       .replace(/\s+/g, "-")
       .toLowerCase();
 

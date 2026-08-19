@@ -164,7 +164,7 @@ export default function AdminDashboard() {
               <thead>
                 <tr>
                   <th>Nome</th>
-                  <th>E-mail</th>
+                  <th>Placa</th>
                   <th>Função</th>
                   <th>Criado em</th>
                 </tr>

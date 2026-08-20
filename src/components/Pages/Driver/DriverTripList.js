@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import api from "../../../services/api";
+import { formatDateOnly } from "../../../utils/date";
 import "./DriverTripList.css";
 
 const n = (v) => (isNaN(Number(v)) ? 0 : Number(v));
@@ -33,15 +34,6 @@ export default function DriverTripList() {
     if (!v) return "-";
     try {
       return new Date(v).toLocaleString("pt-BR");
-    } catch {
-      return "-";
-    }
-  };
-
-  const formatDate = (v) => {
-    if (!v) return "-";
-    try {
-      return new Date(v).toLocaleDateString("pt-BR");
     } catch {
       return "-";
     }
@@ -310,7 +302,7 @@ export default function DriverTripList() {
         ],
       ],
       body: trechos.map((r) => [
-        formatDate(r.data),
+        formatDateOnly(r.data),
         r.origem || "-",
         r.destino || "-",
         brCurrency(r.frete),
@@ -415,7 +407,7 @@ export default function DriverTripList() {
                           : "driver-trip-row-final"
                       }
                     >
-                      <td data-label="Data">{formatDateTime(t.trechos?.[0]?.data) || "-"}</td>
+                      <td data-label="Data">{formatDateOnly(t.trechos?.[0]?.data)}</td>
                       <td data-label="Placa">{t.plate || "-"}</td>
                       <td data-label="KM Inicial">{kmIni}</td>
                       <td data-label="KM Final">{kmFim}</td>

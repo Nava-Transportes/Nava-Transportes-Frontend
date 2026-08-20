@@ -3,6 +3,10 @@ import api from "../../../services/api";
 import "./AdminTrips.css";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import {
+  formatDateOnly,
+  toDateOnlyInputValue,
+} from "../../../utils/date";
 
 const n = (v) => (isNaN(Number(v)) ? 0 : Number(v));
 const brCurrency = (v) =>
@@ -69,15 +73,6 @@ export default function AdminTrips() {
     if (!v) return "-";
     try {
       return new Date(v).toLocaleString("pt-BR");
-    } catch {
-      return "-";
-    }
-  };
-
-  const formatDate = (v) => {
-    if (!v) return "-";
-    try {
-      return new Date(v).toLocaleDateString("pt-BR");
     } catch {
       return "-";
     }
@@ -153,8 +148,8 @@ export default function AdminTrips() {
       filtros.push("Motorista: " + (d?.name || d?.email || driverId));
     }
     if (plate) filtros.push("Placa: " + plate);
-    if (dateFrom) filtros.push("De: " + formatDate(dateFrom));
-    if (dateTo) filtros.push("Até: " + formatDate(dateTo));
+    if (dateFrom) filtros.push("De: " + formatDateOnly(dateFrom));
+    if (dateTo) filtros.push("Até: " + formatDateOnly(dateTo));
     if (q) filtros.push("Busca: " + q);
 
     doc.setFontSize(10);
@@ -174,7 +169,7 @@ export default function AdminTrips() {
         t.trechos && t.trechos.length ? t.trechos[0].data : t.data || t.createdAt;
 
       return [
-        formatDate(dataPrincipal),
+        formatDateOnly(dataPrincipal),
         t.driverName || "-",
         t.companyName || "-",
         t.plate || "-",
@@ -258,7 +253,7 @@ export default function AdminTrips() {
         })),
 
         trechos: asArray(full.trechos).map((r) => ({
-          data: r?.data || "",
+          data: toDateOnlyInputValue(r?.data),
           origem: r?.origem || "",
           destino: r?.destino || "",
           frete: r?.frete ?? "",
@@ -348,7 +343,7 @@ export default function AdminTrips() {
         })),
 
         trechos: asArray(editForm.trechos).map((r) => ({
-          data: r.data ? new Date(r.data) : undefined,
+          data: r.data ? toDateOnlyInputValue(r.data) : undefined,
           origem: r.origem || "",
           destino: r.destino || "",
           frete: r.frete === "" ? 0 : n(r.frete),
@@ -450,7 +445,7 @@ export default function AdminTrips() {
                 Motorista: <b>{t.driverName || "-"}</b> • Placa:{" "}
                 <b>{t.companyName || "-"}</b> • Placa:{" "}
                 <b>{t.plate || "-"}</b> • Data principal:{" "}
-                <b>{formatDate(dataPrincipal)}</b>
+                <b>{formatDateOnly(dataPrincipal)}</b>
               </p>
             </div>
             <button
@@ -569,7 +564,7 @@ export default function AdminTrips() {
                   <tbody>
                     {trechos.map((r, idx) => (
                       <tr key={idx}>
-                        <td data-label="Data">{formatDate(r.data)}</td>
+                        <td data-label="Data">{formatDateOnly(r.data)}</td>
                         <td data-label="Origem">{r.origem || "-"}</td>
                         <td data-label="Destino">{r.destino || "-"}</td>
                         <td data-label="Frete">{brCurrency(r.frete)}</td>
@@ -775,7 +770,7 @@ export default function AdminTrips() {
         ],
       ],
       body: trechos.map((r) => [
-        formatDate(r.data),
+        formatDateOnly(r.data),
         r.origem || "-",
         r.destino || "-",
         brCurrency(r.frete),
@@ -1512,7 +1507,7 @@ export default function AdminTrips() {
                                 <input
                                   className="form-control"
                                   type="date"
-                                  value={r.data ? toDateTimeLocal(r.data).slice(0, 10) : ""}
+                                  value={toDateOnlyInputValue(r.data)}
                                   onChange={(e) => updateTrecho(idx, "data", e.target.value)}
                                 />
                               </td>

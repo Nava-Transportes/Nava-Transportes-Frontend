@@ -1,5 +1,9 @@
 import React, { useMemo, useState, useEffect } from "react";
 import api from "../../../services/api";
+import {
+  getLocalDateInputValue,
+  toDateOnlyInputValue,
+} from "../../../utils/date";
 import "./DriverTripForm.css";
 
 const STORAGE_KEY = "driver_trip_draft";
@@ -24,6 +28,14 @@ const n = (v) => (isNaN(Number(v)) ? 0 : Number(v));
 const brCurrency = (v) =>
   n(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+const normalizeRowsDates = (items) =>
+  Array.isArray(items)
+    ? items.map((item) => ({
+        ...item,
+        data: toDateOnlyInputValue(item?.data),
+      }))
+    : [];
+
 const getCurrentPosition = (options) =>
   new Promise((resolve, reject) => {
     if (!("geolocation" in navigator)) {
@@ -47,6 +59,7 @@ export default function DriverTripForm() {
   const [plate, setPlate] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [premiacao, setPremiacao] = useState(0);
+  const [lastKmFinal, setLastKmFinal] = useState(0);
   // const [totalAssinado, setTotalAssinado] = useState(0);
   // const [totalPago, setTotalPago] = useState(0);
 
@@ -54,7 +67,7 @@ export default function DriverTripForm() {
 
   const [rows, setRows] = useState([
     {
-      data: new Date().toISOString().slice(0, 10),
+      data: getLocalDateInputValue(),
       origem: "",
       destino: "",
       frete: 0,
@@ -96,13 +109,13 @@ export default function DriverTripForm() {
       const updated = [
         ...r,
         {
-          data: new Date().toISOString().slice(0, 10),
+          data: getLocalDateInputValue(),
           origem: "",
           destino: "",
           frete: 0,
           adiantamento: 0,
           saldo: 0,
-          kmInicial: 0,
+          kmInicial: r.length ? n(r[r.length - 1].kmFinal) : lastKmFinal,
           kmFinal: 0,
           posto: "",
           litros: 0,
@@ -260,7 +273,7 @@ export default function DriverTripForm() {
       setChecklistSalvo(true);
 
       if (parsed.trechos?.length) {
-        setRows(parsed.trechos);
+        setRows(normalizeRowsDates(parsed.trechos));
       }
 
       if (parsed.premiacaoPercentual !== undefined) {
@@ -310,6 +323,16 @@ export default function DriverTripForm() {
           return;
         }
 
+        let previousKmFinal = 0;
+
+        try {
+          const lastKmResponse = await api.get("/driver/trips/last-km");
+          previousKmFinal = n(lastKmResponse.data?.kmFinal);
+          setLastKmFinal(previousKmFinal);
+        } catch (lastKmError) {
+          console.warn("Erro ao carregar a última KM", lastKmError);
+        }
+
         let remoteDraft = null;
 
         try {
@@ -320,7 +343,9 @@ export default function DriverTripForm() {
         }
 
         if (remoteDraft) {
-          if (remoteDraft.trechos?.length) setRows(remoteDraft.trechos);
+          if (remoteDraft.trechos?.length) {
+            setRows(normalizeRowsDates(remoteDraft.trechos));
+          }
           if (remoteDraft.premiacaoPercentual !== undefined) {
             setPremiacao(remoteDraft.premiacaoPercentual);
           }
@@ -342,13 +367,20 @@ export default function DriverTripForm() {
         if (saved) {
           const parsed = JSON.parse(saved);
 
-          if (parsed.rows?.length) setRows(parsed.rows);
+          if (parsed.rows?.length) {
+            setRows(normalizeRowsDates(parsed.rows));
+          }
           if (parsed.premiacao !== undefined) setPremiacao(parsed.premiacao);
           if (parsed.companyName) setCompanyName(parsed.companyName);
           setPlate(parsed.plate || user?.email || "");
         } else {
           if (user?.email) setPlate(user.email);
           if (user?.commission !== undefined) setPremiacao(user.commission);
+          setRows((currentRows) =>
+            currentRows.map((row, index) =>
+              index === 0 ? { ...row, kmInicial: previousKmFinal } : row
+            )
+          );
         }
       } catch (e) {
         console.warn("Erro ao restaurar viagem em aberto", e);
@@ -381,6 +413,7 @@ export default function DriverTripForm() {
       .map((x) => ({ descricao: x.descricao, valor: n(x.valor) })),
     trechos: rows.map((r) => ({
       ...r,
+      data: toDateOnlyInputValue(r.data),
       frete: n(r.frete),
       adiantamento: n(r.adiantamento),
       saldo: n(r.saldo),
@@ -464,7 +497,10 @@ export default function DriverTripForm() {
     try {
       const payload = buildTripPayload(geo);
 
-      await api.post("/driver/trips", payload);
+      const response = await api.post("/driver/trips", payload);
+      const nextInitialKm = n(response.data?.trip?.kmFinal ?? payload.kmFinal);
+
+      setLastKmFinal(nextInitialKm);
       
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(CHECKLIST_STORAGE_KEY);
@@ -472,13 +508,13 @@ export default function DriverTripForm() {
       setOk("Viagem cadastrada com sucesso.");
       setRows([
         {
-          data: new Date().toISOString().slice(0, 10),
+          data: getLocalDateInputValue(),
           origem: "",
           destino: "",
           frete: 0,
           adiantamento: 0,
           saldo: 0,
-          kmInicial: 0,
+          kmInicial: nextInitialKm,
           kmFinal: 0,
           posto: "",
           litros: 0,
@@ -517,13 +553,13 @@ export default function DriverTripForm() {
 
     setRows([
       {
-        data: new Date().toISOString().slice(0, 10),
+        data: getLocalDateInputValue(),
         origem: "",
         destino: "",
         frete: 0,
         adiantamento: 0,
         saldo: 0,
-        kmInicial: 0,
+        kmInicial: lastKmFinal,
         kmFinal: 0,
         posto: "",
         litros: 0,
@@ -691,8 +727,10 @@ export default function DriverTripForm() {
                         <input
                           className="inp"
                           type="number"
+                          min="0"
                           step="0.01"
                           value={r.kmInicial}
+                          required
                           onChange={(e) =>
                             setRow(i, "kmInicial", e.target.value)
                           }
@@ -702,8 +740,10 @@ export default function DriverTripForm() {
                         <input
                           className="inp"
                           type="number"
+                          min={n(r.kmInicial)}
                           step="0.01"
                           value={r.kmFinal}
+                          required
                           onChange={(e) => setRow(i, "kmFinal", e.target.value)}
                         />
                       </td>

@@ -36,6 +36,8 @@ export default function AdminTrips() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [q, setQ] = useState("");
+  const [showDrafts, setShowDrafts] = useState(true);
+  const [showSent, setShowSent] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
@@ -128,6 +130,8 @@ export default function AdminTrips() {
     setDateFrom("");
     setDateTo("");
     setQ("");
+    setShowDrafts(true);
+    setShowSent(true);
     fetchTrips();
   };
 
@@ -247,6 +251,8 @@ export default function AdminTrips() {
         premiacaoValor: full.premiacaoValor ?? "",
         premiacaoPercentual: full.premiacaoPercentual ?? "",
 
+        observations: full.observations || "",
+
         extras: asArray(full.extras).map((x) => ({
           descricao: x?.descricao || "",
           valor: x?.valor ?? "",
@@ -337,6 +343,8 @@ export default function AdminTrips() {
             ? undefined
             : n(editForm.premiacaoPercentual),
 
+        observations: editForm.observations || "",
+
         extras: asArray(editForm.extras).map((x) => ({
           descricao: x.descricao || "",
           valor: x.valor === "" ? 0 : n(x.valor),
@@ -419,6 +427,7 @@ export default function AdminTrips() {
     const mediaGeral = n(t.mediaGeral);
     const extras = asArray(t.extras);
     const trechos = asArray(t.trechos);
+    const checklist = t.checklist || {};
 
     const dataPrincipal =
       trechos && trechos.length ? trechos[0].data : t.data || t.createdAt;
@@ -514,6 +523,27 @@ export default function AdminTrips() {
               </p>
             </div>
           </div>
+
+          <div className="admin-trips-details-section admin-trips-checklist">
+            <h4>Checklist do caminhão</h4>
+            <div className="details-kv">
+              <div>
+                <span>Documentação</span>
+                <strong>{checklist.documents ? "Conferida ✓" : "Não conferida"}</strong>
+              </div>
+              <div>
+                <span>Condições do veículo</span>
+                <strong>{checklist.conditions ? "OK ✓" : "Não verificada"}</strong>
+              </div>
+            </div>
+          </div>
+
+          {t.observations && (
+            <div className="admin-trips-details-section admin-trips-observations">
+              <h4>Observações</h4>
+              <p className="details-observations-text">{t.observations}</p>
+            </div>
+          )}
 
           {extras.length > 0 && (
             <div className="admin-trips-details-section admin-trips-extras">
@@ -735,6 +765,15 @@ export default function AdminTrips() {
 
     let startY = 110;
 
+    if (trip.observations) {
+      doc.setFontSize(11);
+      doc.text("Observações:", 14, startY);
+      doc.setFontSize(9);
+      const obsLines = doc.splitTextToSize(String(trip.observations), 180);
+      doc.text(obsLines, 14, startY + 6);
+      startY += 10 + obsLines.length * 4;
+    }
+
     if (extras.length > 0) {
       autoTable(doc, {
         startY,
@@ -765,8 +804,6 @@ export default function AdminTrips() {
           "Posto",
           "Diesel",
           "ARLA",
-          "Média",
-          "Pago?",
         ],
       ],
       body: trechos.map((r) => [
@@ -781,8 +818,6 @@ export default function AdminTrips() {
         r.posto || "-",
         n(r.litros) || "-",
         n(r.litrosArla) || "-",
-        n(r.mediaTrecho) || "-",
-        r.pago ? "Sim" : "Não",
       ]),
       styles: { fontSize: 7 },
       headStyles: { fillColor: [37, 99, 235] },
@@ -835,6 +870,38 @@ export default function AdminTrips() {
       totalRecebido,
       saldoAReceber,
     };
+  };
+
+  const getFilteredAndSortedTrips = () => {
+    let filtered = trips;
+
+    // Aplicar filtros de rascunho e enviados
+    if (!showDrafts || !showSent) {
+      filtered = filtered.filter((t) => {
+        const isDraft = isTripDraft(t);
+        if (isDraft && !showDrafts) return false;
+        if (!isDraft && !showSent) return false;
+        return true;
+      });
+    }
+
+    // Ordenar: rascunhos em cima, enviados em baixo, por data
+    filtered.sort((a, b) => {
+      const aDraft = isTripDraft(a);
+      const bDraft = isTripDraft(b);
+
+      // Se um é rascunho e o outro não, rascunho vem primeiro
+      if (aDraft !== bDraft) {
+        return aDraft ? -1 : 1;
+      }
+
+      // Se ambos são do mesmo tipo, ordenar por data (mais recentes primeiro)
+      const aDate = new Date(a.createdAt || 0).getTime();
+      const bDate = new Date(b.createdAt || 0).getTime();
+      return bDate - aDate;
+    });
+
+    return filtered;
   };
 
   const handleFinishTrip = async (trip) => {
@@ -965,6 +1032,28 @@ export default function AdminTrips() {
             />
           </div>
 
+          <div className="filter-field filter-toggle">
+            <label className="filter-toggle">
+              <input
+                type="checkbox"
+                checked={showDrafts}
+                onChange={(e) => setShowDrafts(e.target.checked)}
+              />
+              Rascunhos
+            </label>
+          </div>
+
+          <div className="filter-field filter-toggle">
+            <label className="filter-toggle">
+              <input
+                type="checkbox"
+                checked={showSent}
+                onChange={(e) => setShowSent(e.target.checked)}
+              />
+              Enviados
+            </label>
+          </div>
+
           <div className="filters-actions">
             <button
               type="button"
@@ -1019,7 +1108,7 @@ export default function AdminTrips() {
               </tr>
             </thead>
             <tbody>
-              {trips.map((t) => {
+              {getFilteredAndSortedTrips().map((t) => {
                 const kmIni = n(t.kmInicial);
                 const kmFim = n(t.kmFinal);
                 const kmRodado = kmFim - kmIni;
@@ -1395,6 +1484,21 @@ export default function AdminTrips() {
                       onChange={(e) =>
                         setEditForm((p) => ({ ...p, longitude: e.target.value }))
                       }
+                    />
+                  </div>
+                </div>
+
+                <div className="admin-trips-form-grid">
+                  <div className="form-field" style={{ gridColumn: "1 / -1" }}>
+                    <label>Observações</label>
+                    <textarea
+                      className="form-control"
+                      rows={3}
+                      value={editForm.observations || ""}
+                      onChange={(e) =>
+                        setEditForm((p) => ({ ...p, observations: e.target.value }))
+                      }
+                      placeholder="Observações do motorista sobre a viagem"
                     />
                   </div>
                 </div>

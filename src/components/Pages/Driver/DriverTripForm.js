@@ -58,6 +58,7 @@ export default function DriverTripForm() {
   const [me, setMe] = useState(null);
   const [plate, setPlate] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [observations, setObservations] = useState("");
   const [premiacao, setPremiacao] = useState(0);
   const [lastKmFinal, setLastKmFinal] = useState(0);
   // const [totalAssinado, setTotalAssinado] = useState(0);
@@ -125,7 +126,7 @@ export default function DriverTripForm() {
         },
       ];
 
-      saveDraft({ rows: updated, premiacao, plate, companyName });
+      saveDraft({ rows: updated, premiacao, plate, companyName, observations });
       return updated;
     });
 
@@ -134,7 +135,7 @@ export default function DriverTripForm() {
   const rmRow = (idx) =>
     setRows((r) => {
       const updated = r.filter((_, i) => i !== idx);
-      saveDraft({ rows: updated, premiacao, plate, companyName });
+      saveDraft({ rows: updated, premiacao, plate, companyName, observations });
       return updated;
     });
 
@@ -178,6 +179,7 @@ export default function DriverTripForm() {
         premiacao,
         plate,
         companyName,
+        observations,
       });
 
       return clone;
@@ -351,6 +353,7 @@ export default function DriverTripForm() {
           }
           setPlate(remoteDraft.plate || user?.email || "");
           setCompanyName(remoteDraft.companyName || "");
+          setObservations(remoteDraft.observations || "");
 
           if (remoteDraft.checklist) {
             setChecklist(remoteDraft.checklist);
@@ -372,6 +375,7 @@ export default function DriverTripForm() {
           }
           if (parsed.premiacao !== undefined) setPremiacao(parsed.premiacao);
           if (parsed.companyName) setCompanyName(parsed.companyName);
+          if (parsed.observations) setObservations(parsed.observations);
           setPlate(parsed.plate || user?.email || "");
         } else {
           if (user?.email) setPlate(user.email);
@@ -425,6 +429,7 @@ export default function DriverTripForm() {
     })),
     checklist,
     checklistSalvo,
+    observations,
     latitude: geo?.latitude,
     longitude: geo?.longitude,
     locationAccuracy: geo?.accuracy,
@@ -442,6 +447,7 @@ export default function DriverTripForm() {
         premiacao,
         plate,
         companyName,
+        observations,
         checklist,
         checklistSalvo,
         savedAsDraft: true,
@@ -576,6 +582,7 @@ export default function DriverTripForm() {
 
     setChecklistSalvo(false);
     setCompanyName("");
+    setObservations("");
     setErr("");
     setOk("");
     setDraftOk("");
@@ -859,7 +866,7 @@ export default function DriverTripForm() {
               </label>
 
               <label className="driver-field-grow">
-                <span>Empresa</span>
+                <span>Empresas carregadas</span>
                 <input
                   className="inp"
                   value={companyName}
@@ -871,6 +878,7 @@ export default function DriverTripForm() {
                       premiacao,
                       plate,
                       companyName: e.target.value,
+                      observations,
                     });
                   }}
                   placeholder="Nome da empresa"
@@ -962,6 +970,32 @@ export default function DriverTripForm() {
                     minimumFractionDigits: 2,
                   })}
                   readOnly
+                />
+              </label>
+            </div>
+
+            <hr className="driver-trip-separator" />
+
+            <div className="driver-trip-observations">
+              <label>
+                <span>Observações (opcional)</span>
+                <textarea
+                  className="inp"
+                  value={observations}
+                  onChange={(e) => {
+                    setObservations(e.target.value);
+                    saveDraft({
+                      rows,
+                      premiacao,
+                      plate,
+                      companyName,
+                      observations: e.target.value,
+                    });
+                  }}
+                  placeholder="Informações sobre a viagem (ex: furou pneu, batida, etc)"
+                  rows="4"
+                  readOnly={isViewMode}
+                  style={{ resize: 'vertical', fontFamily: 'inherit' }}
                 />
               </label>
             </div>

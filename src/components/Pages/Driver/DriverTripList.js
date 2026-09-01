@@ -297,8 +297,6 @@ export default function DriverTripList() {
           "Posto",
           "Diesel",
           "ARLA",
-          "Média",
-          "Pago?",
         ],
       ],
       body: trechos.map((r) => [
@@ -313,8 +311,6 @@ export default function DriverTripList() {
         r.posto || "-",
         n(r.litros) || "-",
         n(r.litrosArla) || "-",
-        n(r.mediaTrecho) || "-",
-        r.pago ? "Sim" : "Não",
       ]),
       styles: { fontSize: 7 },
       headStyles: { fillColor: [37, 99, 235] },

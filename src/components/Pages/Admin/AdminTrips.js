@@ -38,6 +38,7 @@ export default function AdminTrips() {
   const [q, setQ] = useState("");
   const [showDrafts, setShowDrafts] = useState(true);
   const [showSent, setShowSent] = useState(true);
+  const [onlyPendingFinalize, setOnlyPendingFinalize] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
@@ -132,6 +133,7 @@ export default function AdminTrips() {
     setQ("");
     setShowDrafts(true);
     setShowSent(true);
+    setOnlyPendingFinalize(false);
     fetchTrips();
   };
 
@@ -885,6 +887,13 @@ export default function AdminTrips() {
       });
     }
 
+    // Somente viagens enviadas que ainda não foram finalizadas
+    if (onlyPendingFinalize) {
+      filtered = filtered.filter(
+        (t) => !isTripDraft(t) && !isTripFinished(t)
+      );
+    }
+
     // Ordenar: rascunhos em cima, enviados em baixo, por data
     filtered.sort((a, b) => {
       const aDraft = isTripDraft(a);
@@ -1051,6 +1060,17 @@ export default function AdminTrips() {
                 onChange={(e) => setShowSent(e.target.checked)}
               />
               Enviados
+            </label>
+          </div>
+
+          <div className="filter-field filter-toggle">
+            <label className="filter-toggle">
+              <input
+                type="checkbox"
+                checked={onlyPendingFinalize}
+                onChange={(e) => setOnlyPendingFinalize(e.target.checked)}
+              />
+              Só pendentes de finalizar
             </label>
           </div>
 

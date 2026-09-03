@@ -39,8 +39,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  color: #e5e7eb;
+  font-size: 14px;
+  font-weight: 600;
+  color: #f8fafc;
   margin: 0;
   cursor: pointer;
   flex-direction: row;
